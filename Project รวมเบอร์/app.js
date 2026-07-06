@@ -90,30 +90,33 @@ const officialDatabase = {
     }
 };
 
-// ฟังก์ชันสร้าง UI แบบแยกหัวข้อ (ปรับแก้ Logic การค้นหาใหม่)
+// ฟังก์ชันสร้าง UI และคัดกรองข้อมูล (แก้ไข Logic อุดรอยรั่วแล้ว)
 function renderOfficialStructure(searchFilter = "") {
     const container = document.getElementById('categoryContainer');
+    if (!container) return;
     container.innerHTML = '';
+    
     let hasGlobalData = false;
+    const searchString = searchFilter.toLowerCase().trim();
 
     for (let key in officialDatabase) {
         const cat = officialDatabase[key];
         
-        // กรองข้อมูลในแต่ละหมวดหมู่
         const filteredList = cat.list.filter(item => {
-            const searchString = searchFilter.toLowerCase().trim();
-            
-            // 1. ค้นหาจากกลุ่มข้อความตัวอักษร
+            // ถ้าช่องค้นหาว่าง ให้คืนค่าแสดงผลทั้งหมดทันที
+            if (searchString === "") return true;
+
+            // 1. ค้นหาจากข้อความตัวอักษร (ชื่อ, คำอธิบาย, คีย์เวิร์ด)
             const matchText = item.name.toLowerCase().includes(searchString) || 
                               item.desc.toLowerCase().includes(searchString) ||
                               item.keys.toLowerCase().includes(searchString);
 
-            // 2. ค้นหาจากกลุ่มตัวเลขเบอร์โทรศัพท์ (แยกตรวจเพื่อป้องกันบั๊กข้อความว่าง)
-            const cleanPhone = item.phone.replace(/[^0-9]/g, '');
+            // 2. ค้นหาจากเบอร์โทรศัพท์ (ดึงเฉพาะตัวเลขมาส่อง)
             const cleanSearch = searchString.replace(/[^0-9]/g, '');
+            const cleanPhone = item.phone.replace(/[^0-9]/g, '');
             
-            // ถ้าสิ่งที่ผู้ใช้พิมพ์มีตัวเลข ให้ทำการดึงเฉพาะตัวเลขมาตรวจเช็คกัน แต่ถ้าเป็นตัวอักษรล้วนให้เทียบตรงๆ
-            const matchPhone = cleanSearch !== '' ? cleanPhone.includes(cleanSearch) : item.phone.includes(searchString);
+            // แก้บั๊กสำคัญ: จะเช็คเบอร์โทรศัพท์ก็ต่อเมื่อในช่องค้นหามีตัวเลขโผล่มาเท่านั้น!
+            const matchPhone = cleanSearch !== '' && cleanPhone.includes(cleanSearch);
 
             return matchText || matchPhone;
         });
@@ -166,12 +169,14 @@ function renderOfficialStructure(searchFilter = "") {
         }
     }
 
-    // จัดการการแสดงผลของข้อความ "ไม่พบข้อมูล"
+    // จัดการแสดงผลตัวเตือน "ไม่พบข้อมูล"
     const noResult = document.getElementById('noResult');
-    if (hasGlobalData) {
-        noResult.classList.add('hidden');
-    } else {
-        noResult.classList.remove('hidden');
+    if (noResult) {
+        if (hasGlobalData) {
+            noResult.classList.add('hidden');
+        } else {
+            noResult.classList.remove('hidden');
+        }
     }
 }
 
@@ -199,12 +204,15 @@ function updateActiveButton(activeSize) {
     });
 }
 
-// ผูกระบบค้นหาข้อมูล (เหลือจุดเดียว สะอาด ไม่ทำงานซ้ำซ้อน)
-document.getElementById('searchInput').addEventListener('input', function(e) {
-    renderOfficialStructure(e.target.value);
-});
+// ผูกระบบ Event ค้นหา
+const searchInput = document.getElementById('searchInput');
+if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+        renderOfficialStructure(e.target.value);
+    });
+}
 
-// โหลดข้อมูลขึ้นหน้าจอเมื่อเริ่มเปิดหน้าเว็บ
+// โหลดข้อมูลขึ้นหน้าจอเมื่อโหลดหน้าเว็บเสร็จสิ้น
 document.addEventListener('DOMContentLoaded', () => {
     const savedSize = localStorage.getItem('preferredFontSize') || 'normal';
     changeFontSize(savedSize);
